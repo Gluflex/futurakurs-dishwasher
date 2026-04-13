@@ -362,6 +362,32 @@ function dishwasherArtefactSVG(x, y) {
   </g>`;
 }
 
+function fitFlexText(root) {
+  const nodes = root.querySelectorAll('text[data-fit-w]');
+  nodes.forEach(el => {
+    const maxW = parseFloat(el.getAttribute('data-fit-w'));
+    const minSize = parseFloat(el.getAttribute('data-fit-min') || '6');
+    let origSize = parseFloat(el.getAttribute('data-fit-orig-size'));
+    let origLs = parseFloat(el.getAttribute('data-fit-orig-ls'));
+    if (isNaN(origSize)) {
+      origSize = parseFloat(el.getAttribute('font-size')) || 11;
+      el.setAttribute('data-fit-orig-size', origSize);
+    }
+    if (isNaN(origLs)) {
+      origLs = parseFloat(el.getAttribute('letter-spacing')) || 0;
+      el.setAttribute('data-fit-orig-ls', origLs);
+    }
+    el.setAttribute('font-size', origSize);
+    el.setAttribute('letter-spacing', origLs);
+    let w;
+    try { w = el.getComputedTextLength(); } catch (e) { return; }
+    if (w <= maxW) return;
+    const scale = Math.max(minSize / origSize, maxW / w);
+    el.setAttribute('font-size', (origSize * scale).toFixed(2));
+    el.setAttribute('letter-spacing', (origLs * scale).toFixed(2));
+  });
+}
+
 function flatTopHexPoints(cx, cy, r) {
   const pts = [];
   for (let i = 0; i < 6; i++) {
@@ -385,7 +411,7 @@ function renderMap() {
       <stop offset="100%" stop-color="#b89866"/>
     </radialGradient>
   </defs>`;
-  html += `<rect width="900" height="800" fill="url(#parchGrad)"/>`;
+  html += `<rect width="900" height="820" fill="url(#parchGrad)"/>`;
 
   const stains = [
     [80, 120, 25, 0.08], [820, 200, 35, 0.1],
@@ -397,8 +423,8 @@ function renderMap() {
     html += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="#5c3d22" opacity="${op}"/>`;
   });
 
-  html += `<rect x="14" y="14" width="872" height="772" fill="none" stroke="#3d2817" stroke-width="3"/>`;
-  html += `<rect x="22" y="22" width="856" height="756" fill="none" stroke="#3d2817" stroke-width="0.8"/>`;
+  html += `<rect x="14" y="14" width="872" height="792" fill="none" stroke="#3d2817" stroke-width="3"/>`;
+  html += `<rect x="22" y="22" width="856" height="776" fill="none" stroke="#3d2817" stroke-width="0.8"/>`;
 
   // Title banner
   html += `<g>
@@ -431,9 +457,9 @@ function renderMap() {
   html += ufoSVG(620, 130);
   html += mermaidSVG(260, 770);
   html += knightSnailSVG(395, 795);
-  html += pulexMaximusSVG(860, 660);
-  html += treasureSVG(855, 750);
-  html += dishwasherArtefactSVG(860, 220);
+  html += pulexMaximusSVG(828, 660);
+  html += treasureSVG(835, 750);
+  html += dishwasherArtefactSVG(820, 220);
 
   // City wall
   const wallCx = 450, wallCy = 440, wallR = 305;
@@ -493,6 +519,7 @@ function renderMap() {
   });
 
   svg.innerHTML = html;
+  fitFlexText(svg);
 }
 
 function drawDistrict(f, cx, cy, r) {
@@ -507,17 +534,14 @@ function drawDistrict(f, cx, cy, r) {
   const apothem = r * Math.sqrt(3) / 2;
   const bannerY = cy - apothem + 4;
   const bannerW = r * 0.95;
-  const maxTextW = bannerW - 10;
-  const fitAttr = f.name.length > 10
-    ? `textLength="${maxTextW}" lengthAdjust="spacingAndGlyphs"`
-    : '';
+  const maxTextW = bannerW - 12;
   html += `
     <path d="M${cx - bannerW/2},${bannerY} L${cx + bannerW/2},${bannerY} L${cx + bannerW/2 - 5},${bannerY + 16} L${cx - bannerW/2 + 5},${bannerY + 16} Z"
           fill="${f.color}" stroke="#3d2817" stroke-width="1.3"/>
     <text x="${cx}" y="${bannerY + 12}" text-anchor="middle"
           font-family="Palatino Linotype, serif" font-size="11"
           font-variant="small-caps" letter-spacing="1.5" fill="#f0e0bc"
-          font-weight="bold" ${fitAttr}>${f.name}</text>
+          font-weight="bold" data-fit-w="${maxTextW.toFixed(1)}" data-fit-min="7">${f.name}</text>
   `;
 
   const coinY = bannerY + 32;

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Civitas Dishwasher · Vermögensregister</title>
+<style>
+:root {
+  --parchment: #f0e0bc;
+  --parchment-light: #f8eecf;
+  --parchment-dark: #d4ba80;
+  --ink: #3d2817;
+  --ink-light: #5c3d22;
+  --gold: #a87830;
+  --gold-bright: #c79a4a;
+  --wax-red: #8b2c1e;
+  --shadow: rgba(20, 12, 4, 0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  background: #1a0f06;
+  background-image: radial-gradient(ellipse at top, #2a1a0c 0%, #0a0502 95%);
+  color: var(--ink);
+  min-height: 100vh;
+  padding: 28px 16px 40px;
+}
+h1 {
+  text-align: center;
+  color: var(--gold-bright);
+  font-size: 2.6em;
+  font-variant: small-caps;
+  letter-spacing: 12px;
+  font-weight: normal;
+  margin-bottom: 6px;
+  text-shadow: 0 0 24px rgba(199, 154, 74, 0.5), 2px 2px 6px rgba(0,0,0,0.9);
+}
+.subtitle {
+  text-align: center;
+  color: #b89866;
+  font-style: italic;
+  font-variant: small-caps;
+  letter-spacing: 4px;
+  margin-bottom: 26px;
+  font-size: 0.9em;
+}
+.subtitle::before { content: '❦  '; color: var(--gold); }
+.subtitle::after { content: '  ❦'; color: var(--gold); }
+.controls { text-align: center; margin-bottom: 28px; }
+button {
+  background: var(--ink);
+  color: var(--parchment);
+  border: 1px solid var(--gold);
+  padding: 9px 18px;
+  font-family: inherit;
+  font-variant: small-caps;
+  letter-spacing: 2px;
+  cursor: pointer;
+  border-radius: 0;
+  margin: 0 4px 4px;
+  font-size: 13px;
+  transition: all 0.15s;
+}
+button:hover {
+  background: var(--ink-light);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 10px rgba(199, 154, 74, 0.4);
+}
+button.primary {
+  background: var(--wax-red);
+  border-color: var(--gold-bright);
+  color: var(--gold-bright);
+}
+button.primary:hover { background: #a3331f; }
+button.danger { color: #d47057; border-color: #8b2c1e; }
+.layout {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.panel {
+  background: radial-gradient(ellipse at center, var(--parchment-light) 0%, var(--parchment) 50%, var(--parchment-dark) 100%);
+  padding: 32px 38px;
+  position: relative;
+  box-shadow: inset 0 0 80px rgba(139, 90, 30, 0.18), 0 8px 36px var(--shadow);
+}
+.panel::before {
+  content: '';
+  position: absolute;
+  inset: 12px;
+  border: 1px solid var(--ink);
+  opacity: 0.55;
+  pointer-events: none;
+}
+.panel::after {
+  content: '';
+  position: absolute;
+  inset: 16px;
+  border: 1px solid var(--ink);
+  opacity: 0.25;
+  pointer-events: none;
+}
+.panel h2 {
+  text-align: center;
+  font-variant: small-caps;
+  letter-spacing: 6px;
+  color: var(--ink);
+  font-size: 1.35em;
+  font-weight: normal;
+  margin-bottom: 18px;
+}
+.panel h2::before { content: '⚜  '; color: var(--gold); }
+.panel h2::after { content: '  ⚜'; color: var(--gold); }
+.map-wrap { width: 100%; max-width: 920px; margin: 0 auto; }
+#cityMap { width: 100%; height: auto; display: block; }
+.fam-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 800px) { .fam-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .fam-grid { grid-template-columns: 1fr; } }
+.fam-card {
+  background: rgba(248, 238, 207, 0.6);
+  border: 1px solid var(--ink);
+  padding: 14px 12px 16px;
+  position: relative;
+  text-align: center;
+}
+.fam-card::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border: 1px solid var(--ink);
+  opacity: 0.25;
+  pointer-events: none;
+}
+.fam-card .crest {
+  width: 64px;
+  height: 76px;
+  margin: 0 auto 4px;
+  display: block;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 3px rgba(20, 12, 4, 0.4));
+}
+.fam-name {
+  font-variant: small-caps;
+  letter-spacing: 3px;
+  font-size: 1em;
+  color: var(--ink);
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+.fam-coins {
+  font-size: 2.1em;
+  color: var(--ink);
+  line-height: 1;
+  margin: 4px 0 2px;
+  font-weight: bold;
+}
+.fam-coins::after {
+  content: ' ⚜';
+  color: var(--gold);
+}
+.fam-income b {
+  font-weight: bold;
+  color: var(--ink);
+  font-style: normal;
+}
+.fam-income {
+  font-size: 0.85em;
+  color: var(--ink-light);
+  font-style: italic;
+}
+.fam-buildings {
+  margin-top: 10px;
+  font-size: 0.85em;
+  color: var(--ink-light);
+  font-variant: small-caps;
+  letter-spacing: 1px;
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  align-items: baseline;
+}
+.fam-buildings b {
+  font-size: 1.25em;
+  font-weight: bold;
+  color: var(--ink);
+  font-variant: normal;
+  margin-left: 2px;
+}
+.fam-edit {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--ink-light);
+  display: none;
+}
+.editing .fam-edit { display: block; }
+.fam-edit-row {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.fam-edit button {
+  padding: 4px 8px;
+  font-size: 11px;
+  margin: 0;
+  letter-spacing: 1px;
+}
+.fam-edit input {
+  width: 64px;
+  padding: 4px;
+  background: var(--parchment-light);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font-family: inherit;
+  text-align: center;
+  font-size: 12px;
+}
+.stand-info {
+  text-align: center;
+  color: var(--ink-light);
+  font-size: 11px;
+  margin-top: 18px;
+  font-style: italic;
+  font-variant: small-caps;
+  letter-spacing: 2px;
+}
+.add-fam {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--ink);
+  display: none;
+  justify-content: center;
+  gap: 6px;
+}
+.editing .add-fam { display: flex; }
+.add-fam input {
+  padding: 6px 10px;
+  background: var(--parchment-light);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font-family: inherit;
+  width: 200px;
+}
+</style>
+</head>
+<body>
+
+<h1>★ DISHWASHER ★</h1>
+<div class="subtitle">Königliches Vermögensregister · Anno MMXXVI</div>
+
+<div class="controls">
+  <button id="editToggle">✎ Bearbeiten</button>
+  <button id="exportBtn">⬇ Export</button>
+  <button id="importBtn">⬆ Import</button>
+  <!-- <button id="resetBtn" class="danger">↺ Reset 08:00</button> -->
+  <input type="file" id="importFile" accept=".json" style="display:none">
+</div>
+
+<div class="layout">
+  <div class="panel">
+    <h2>Stadtkarte von Dishwasher</h2>
+    <div class="map-wrap">
+      <svg viewBox="0 0 900 800" id="cityMap" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+  <div class="panel" id="famPanel">
+    <h2>Vermögensregister der Familien</h2>
+    <div class="fam-grid" id="famGrid"></div>
+    <div class="stand-info" id="standInfo"></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+</body>
+</html>

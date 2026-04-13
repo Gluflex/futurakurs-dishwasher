@@ -727,6 +727,14 @@ document.getElementById('famGrid').addEventListener('click', e => {
 });
 
 document.getElementById('editToggle').addEventListener('click', () => {
+  if (!editMode) {
+    const pw = prompt('Passwort:');
+    if (pw === null) return;
+    if (pw !== 'AndiArbeit') {
+      alert('Falsches Passwort.');
+      return;
+    }
+  }
   editMode = !editMode;
   document.getElementById('editToggle').textContent = editMode ? '✓ Fertig' : '✎ Bearbeiten';
   document.getElementById('editToggle').classList.toggle('primary', editMode);

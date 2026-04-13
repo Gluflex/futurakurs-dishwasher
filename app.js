@@ -731,7 +731,17 @@ document.getElementById('editToggle').addEventListener('click', () => {
     const pw = prompt('Passwort:');
     if (pw === null) return;
     if (pw !== 'AndiArbeit') {
-      alert('Falsches Passwort.');
+      alert(
+        '⚜ EDICTUM REGIUM ⚜\n\n' +
+        'HALT EIN, FREVLER!\n\n' +
+        'Das königliche Vermögensregister untersteht\n' +
+        'dem Schutz der Regierung zu Dishwasher.\n' +
+        'Dein unbefugter Eingriffsversuch ward in den\n' +
+        'Annalen auf ewig vermerkt.\n\n' +
+        'Weitere Übergriffe werden mit Kerker,\n' +
+        'Pranger und Entzug der Vorräte geahndet.\n\n' +
+        '— Siegel der Regierung —'
+      );
       return;
     }
   }

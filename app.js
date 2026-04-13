@@ -741,7 +741,7 @@ document.getElementById('editToggle').addEventListener('click', () => {
   document.getElementById('famPanel').classList.toggle('editing', editMode);
 });
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+document.getElementById('exportBtn')?.addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -751,10 +751,10 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   URL.revokeObjectURL(url);
 });
 
-document.getElementById('importBtn').addEventListener('click', () => {
+document.getElementById('importBtn')?.addEventListener('click', () => {
   document.getElementById('importFile').click();
 });
-document.getElementById('importFile').addEventListener('change', e => {
+document.getElementById('importFile')?.addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();

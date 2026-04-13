@@ -248,6 +248,24 @@ button.danger { color: #d47057; border-color: #8b2c1e; }
   font-family: inherit;
   width: 200px;
 }
+body.verkehrte-zeit {
+  transform: rotate(180deg);
+  transform-origin: center center;
+  filter: hue-rotate(15deg) sepia(0.18) contrast(1.05);
+  transition: transform 2.2s cubic-bezier(.65,.05,.36,1), filter 2.2s ease-in-out;
+}
+body.verkehrte-zeit h1 {
+  color: var(--wax-red);
+  text-shadow: 0 0 22px rgba(139, 44, 30, 0.6), 2px 2px 6px rgba(0,0,0,0.9);
+}
+body.verkehrte-zeit .subtitle {
+  color: #d47057;
+}
+.fam-income.verkehrt {
+  color: var(--wax-red) !important;
+  font-weight: bold;
+  font-style: normal;
+}
 </style>
 </head>
 <body>

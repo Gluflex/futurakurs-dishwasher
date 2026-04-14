@@ -554,61 +554,42 @@ function drawDistrict(f, cx, cy, r) {
   const totalB = f.buildings.S + f.buildings.M + f.buildings.L;
   if (totalB === 0) return html;
 
+  const buildingList = [];
+  for (let k = 0; k < f.buildings.L; k++) buildingList.push('L');
+  for (let k = 0; k < f.buildings.M; k++) buildingList.push('M');
+  for (let k = 0; k < f.buildings.S; k++) buildingList.push('S');
+
   const gridTop = coinY + 10;
   const gridBottom = cy + apothem - 8;
   const gridH = gridBottom - gridTop;
-  const gridW = r * 1.3;
+  const gridW = r * 1.05;
 
-  if (totalB <= 9) {
-    const buildingList = [];
-    for (let k = 0; k < f.buildings.L; k++) buildingList.push('L');
-    for (let k = 0; k < f.buildings.M; k++) buildingList.push('M');
-    for (let k = 0; k < f.buildings.S; k++) buildingList.push('S');
+  const area = gridW * gridH;
+  const targetCellSize = Math.sqrt(area / totalB);
+  const cols = Math.max(1, Math.ceil(gridW / targetCellSize));
+  const rows = Math.ceil(totalB / cols);
+  const cellW = gridW / cols;
+  const cellH = Math.min(gridH / rows, cellW * 1.15);
+  const MAX_BUILDING = 40;
+  const buildingSize = Math.min(cellW, cellH, MAX_BUILDING) * 0.9;
 
-    const cols = totalB <= 1 ? 1 : (totalB <= 4 ? 2 : 3);
-    const rows = Math.ceil(totalB / cols);
-    const cellW = gridW / cols;
-    const cellH = Math.min(cellW, gridH / Math.max(rows, 1));
-    const buildingSize = Math.min(cellW, cellH) * 0.9;
+  const usedH = rows * cellH;
+  const yOff = (gridH - usedH) / 2;
+  const lastRowCount = totalB - (rows - 1) * cols;
+  const lastRowUsedW = (lastRowCount - 1) * cellW;
 
-    buildingList.forEach((type, k) => {
-      const col = k % cols;
-      const row = Math.floor(k / cols);
-      const usedW = (cols - 1) * cellW;
-      const bx = cx - usedW/2 + col * cellW;
-      const by = gridTop + cellH/2 + row * cellH;
+  buildingList.forEach((type, k) => {
+    const col = k % cols;
+    const row = Math.floor(k / cols);
+    const isLastRow = row === rows - 1;
+    const rowUsedW = isLastRow ? lastRowUsedW : (cols - 1) * cellW;
+    const bx = cx - rowUsedW/2 + col * cellW;
+    const by = gridTop + yOff + cellH/2 + row * cellH;
 
-      if (type === 'S') html += svgHouse(bx, by, f.color, buildingSize * 0.9);
-      else if (type === 'M') html += svgManor(bx, by, f.color, buildingSize);
-      else html += svgCastle(bx, by, f.color, buildingSize * 1.1);
-    });
-  } else {
-    const tiers = [];
-    if (f.buildings.L > 0) tiers.push({ type: 'L', count: f.buildings.L });
-    if (f.buildings.M > 0) tiers.push({ type: 'M', count: f.buildings.M });
-    if (f.buildings.S > 0) tiers.push({ type: 'S', count: f.buildings.S });
-
-    const n = tiers.length;
-    const rowH = gridH / n;
-    const glyphSize = Math.min(rowH * 0.75, 32);
-    const fontSize = Math.min(rowH * 0.55, 22);
-
-    tiers.forEach((t, i) => {
-      const rowCy = gridTop + rowH/2 + i * rowH;
-      const glyphX = cx - gridW * 0.22;
-      const textX = cx + gridW * 0.02;
-
-      if (t.type === 'S') html += svgHouse(glyphX, rowCy, f.color, glyphSize * 0.9);
-      else if (t.type === 'M') html += svgManor(glyphX, rowCy, f.color, glyphSize);
-      else html += svgCastle(glyphX, rowCy, f.color, glyphSize * 1.1);
-
-      html += `
-        <text x="${textX}" y="${rowCy + fontSize * 0.35}" text-anchor="start"
-              font-family="Palatino Linotype, serif" font-size="${fontSize.toFixed(1)}"
-              font-weight="bold" fill="#3d2817">× ${t.count}</text>
-      `;
-    });
-  }
+    if (type === 'S') html += svgHouse(bx, by, f.color, buildingSize * 0.9);
+    else if (type === 'M') html += svgManor(bx, by, f.color, buildingSize);
+    else html += svgCastle(bx, by, f.color, buildingSize * 1.1);
+  });
 
   return html;
 }

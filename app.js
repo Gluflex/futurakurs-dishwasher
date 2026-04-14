@@ -388,6 +388,102 @@ function fitFlexText(root) {
   });
 }
 
+function mulberry32(a) {
+  return function() {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(s) {
+  let h = 2166136261;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+function bridsonDisk(R, minDist, seed) {
+  const rand = mulberry32(seed);
+  const k = 30;
+  const cellSize = minDist / Math.SQRT2;
+  const gridDim = Math.ceil(2 * R / cellSize) + 2;
+  const grid = new Array(gridDim * gridDim).fill(null);
+
+  const gxOf = x => Math.floor((x + R) / cellSize);
+  const gyOf = y => Math.floor((y + R) / cellSize);
+
+  function place(p) {
+    const gx = gxOf(p[0]);
+    const gy = gyOf(p[1]);
+    if (gx >= 0 && gy >= 0 && gx < gridDim && gy < gridDim) {
+      grid[gy * gridDim + gx] = p;
+    }
+  }
+
+  function farEnough(x, y) {
+    const gx = gxOf(x);
+    const gy = gyOf(y);
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const cgx = gx + dx, cgy = gy + dy;
+        if (cgx < 0 || cgy < 0 || cgx >= gridDim || cgy >= gridDim) continue;
+        const q = grid[cgy * gridDim + cgx];
+        if (!q) continue;
+        const ddx = q[0] - x, ddy = q[1] - y;
+        if (ddx * ddx + ddy * ddy < minDist * minDist) return false;
+      }
+    }
+    return true;
+  }
+
+  const points = [];
+  const active = [];
+  const p0 = [0, 0];
+  points.push(p0);
+  active.push(p0);
+  place(p0);
+
+  while (active.length > 0) {
+    const ai = Math.floor(rand() * active.length);
+    const [px, py] = active[ai];
+    let placed = false;
+    for (let i = 0; i < k; i++) {
+      const angle = rand() * Math.PI * 2;
+      const radius = minDist * (1 + rand());
+      const nx = px + radius * Math.cos(angle);
+      const ny = py + radius * Math.sin(angle);
+      if (nx * nx + ny * ny > R * R) continue;
+      if (!farEnough(nx, ny)) continue;
+      const np = [nx, ny];
+      points.push(np);
+      active.push(np);
+      place(np);
+      placed = true;
+      break;
+    }
+    if (!placed) active.splice(ai, 1);
+  }
+
+  return points;
+}
+
+function poissonDisk(N, R, seed) {
+  let minDist = R * Math.sqrt(2.8 / Math.max(N, 1));
+  minDist = Math.min(minDist, R * 0.65);
+  minDist = Math.max(minDist, R * 0.035);
+
+  let points = [];
+  for (let attempt = 0; attempt < 8 && points.length < N; attempt++) {
+    points = bridsonDisk(R, minDist, seed + attempt);
+    if (points.length < N) minDist *= 0.85;
+  }
+  return { points: points.slice(0, N), minDist };
+}
+
 function flatTopHexPoints(cx, cy, r) {
   const pts = [];
   for (let i = 0; i < 6; i++) {
@@ -566,16 +662,14 @@ function drawDistrict(f, cx, cy, r) {
 
   const R_disk = gridH / 2 - 4;
   const MAX_BUILDING = 48;
-  const targetSize = 1.8 * R_disk / (Math.sqrt(totalB) + 0.9);
-  const buildingSize = Math.min(MAX_BUILDING, targetSize);
-  const R_eff = Math.max(0, R_disk - buildingSize / 2);
-  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
+  const seed = hashString(f.id || f.name || 'x');
+  const { points, minDist } = poissonDisk(totalB, R_disk, seed);
+  const buildingSize = Math.min(MAX_BUILDING, minDist * 0.8);
 
   buildingList.forEach((type, k) => {
-    const rN = totalB === 1 ? 0 : R_eff * Math.sqrt((k + 0.5) / totalB);
-    const theta = k * GOLDEN_ANGLE;
-    const bx = cx + rN * Math.cos(theta);
-    const by = gridCenterY + rN * Math.sin(theta);
+    const p = points[k] || [0, 0];
+    const bx = cx + p[0];
+    const by = gridCenterY + p[1];
 
     if (type === 'S') html += svgHouse(bx, by, f.color, buildingSize * 0.9);
     else if (type === 'M') html += svgManor(bx, by, f.color, buildingSize);

@@ -736,24 +736,28 @@ function renderFamilies() {
           <span>L ×<b>${f.buildings.L}</b></span>
         </div>
         <div class="fam-edit">
-          <div class="fam-edit-row">
-            <button data-act="addS" data-i="${idx}">Kauf S (10)</button>
-            <button data-act="addM" data-i="${idx}">Kauf M (20)</button>
-            <button data-act="addL" data-i="${idx}">Kauf L (50)</button>
+          <div class="fam-edit-row tight">
+            <span class="fam-edit-lbl">S</span>
+            <input type="number" class="fam-edit-bcount" data-type="S" data-i="${idx}" value="${f.buildings.S}" min="0">
+            <button data-act="buyS" data-i="${idx}">Kauf 10⚜</button>
+            <button data-act="allS" data-i="${idx}">Alle</button>
           </div>
-          <div class="fam-edit-row">
-            <button data-act="allS" data-i="${idx}">Alle S</button>
-            <button data-act="allM" data-i="${idx}">Alle M</button>
-            <button data-act="allL" data-i="${idx}">Alle L</button>
+          <div class="fam-edit-row tight">
+            <span class="fam-edit-lbl">M</span>
+            <input type="number" class="fam-edit-bcount" data-type="M" data-i="${idx}" value="${f.buildings.M}" min="0">
+            <button data-act="buyM" data-i="${idx}">Kauf 20⚜</button>
+            <button data-act="allM" data-i="${idx}">Alle</button>
           </div>
-          <div class="fam-edit-row">
-            <button data-act="subS" data-i="${idx}">−S</button>
-            <button data-act="subM" data-i="${idx}">−M</button>
-            <button data-act="subL" data-i="${idx}">−L</button>
+          <div class="fam-edit-row tight">
+            <span class="fam-edit-lbl">L</span>
+            <input type="number" class="fam-edit-bcount" data-type="L" data-i="${idx}" value="${f.buildings.L}" min="0">
+            <button data-act="buyL" data-i="${idx}">Kauf 50⚜</button>
+            <button data-act="allL" data-i="${idx}">Alle</button>
           </div>
-          <div class="fam-edit-row">
-            <input type="number" id="setC${idx}" placeholder="${Math.floor(coins)}">
-            <button data-act="setCoins" data-i="${idx}">setzen</button>
+          <div class="fam-edit-row tight">
+            <span class="fam-edit-lbl">⚜</span>
+            <input type="number" class="fam-edit-ccount" data-i="${idx}" value="${Math.floor(coins)}">
+            <button data-act="setCoins" data-i="${idx}">Setzen</button>
             <button data-act="del" data-i="${idx}" class="danger">×</button>
           </div>
         </div>
@@ -797,13 +801,6 @@ document.getElementById('famGrid').addEventListener('click', e => {
     f.buildings[size]++;
     return true;
   }
-  function refund(size) {
-    if (f.buildings[size] <= 0) return false;
-    snapshot();
-    f.buildings[size]--;
-    f.coinsAtStand += COST[size];
-    return true;
-  }
   function buyAll(size) {
     snapshot();
     const available = Math.floor(f.coinsAtStand);
@@ -818,17 +815,15 @@ document.getElementById('famGrid').addEventListener('click', e => {
     return true;
   }
 
-  if (act === 'addS') { if (!buy('S')) return; }
-  else if (act === 'subS') { if (!refund('S')) return; }
-  else if (act === 'addM') { if (!buy('M')) return; }
-  else if (act === 'subM') { if (!refund('M')) return; }
-  else if (act === 'addL') { if (!buy('L')) return; }
-  else if (act === 'subL') { if (!refund('L')) return; }
+  if (act === 'buyS') { if (!buy('S')) return; }
+  else if (act === 'buyM') { if (!buy('M')) return; }
+  else if (act === 'buyL') { if (!buy('L')) return; }
   else if (act === 'allS') { if (!buyAll('S')) return; }
   else if (act === 'allM') { if (!buyAll('M')) return; }
   else if (act === 'allL') { if (!buyAll('L')) return; }
   else if (act === 'setCoins') {
-    const v = parseInt(document.getElementById('setC' + i).value);
+    const inp = document.querySelector(`.fam-edit-ccount[data-i="${i}"]`);
+    const v = parseInt(inp?.value);
     if (!isNaN(v)) {
       snapshot();
       f.coinsAtStand = v;
@@ -839,6 +834,30 @@ document.getElementById('famGrid').addEventListener('click', e => {
   }
   saveState();
   render();
+});
+
+document.getElementById('famGrid').addEventListener('input', e => {
+  const el = e.target;
+  if (!el.matches('.fam-edit-bcount, .fam-edit-ccount')) return;
+  const i = parseInt(el.dataset.i);
+  const f = state.families[i];
+  if (!f) return;
+  if (el.classList.contains('fam-edit-bcount')) {
+    const v = Math.max(0, parseInt(el.value) || 0);
+    snapshot();
+    f.buildings[el.dataset.type] = v;
+  } else {
+    const v = parseInt(el.value);
+    if (isNaN(v)) return;
+    snapshot();
+    f.coinsAtStand = v;
+  }
+});
+
+document.getElementById('famGrid').addEventListener('change', e => {
+  const el = e.target;
+  if (!el.matches('.fam-edit-bcount, .fam-edit-ccount')) return;
+  saveState();
 });
 
 document.getElementById('editToggle').addEventListener('click', () => {

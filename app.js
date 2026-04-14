@@ -492,7 +492,7 @@ function renderMap() {
   `;
 
   // 6 family hexes (flat-top arrangement)
-  const hexR = 92;
+  const hexR = 110;
   const hexPositions = [
     [0, -hexR * Math.sqrt(3)],
     [hexR * 1.5, -hexR * Math.sqrt(3)/2],
@@ -562,29 +562,20 @@ function drawDistrict(f, cx, cy, r) {
   const gridTop = coinY + 10;
   const gridBottom = cy + apothem - 8;
   const gridH = gridBottom - gridTop;
-  const gridW = r * 1.05;
+  const gridCenterY = (gridTop + gridBottom) / 2;
 
-  const area = gridW * gridH;
-  const targetCellSize = Math.sqrt(area / totalB);
-  const cols = Math.max(1, Math.ceil(gridW / targetCellSize));
-  const rows = Math.ceil(totalB / cols);
-  const cellW = gridW / cols;
-  const cellH = Math.min(gridH / rows, cellW * 1.15);
-  const MAX_BUILDING = 40;
-  const buildingSize = Math.min(cellW, cellH, MAX_BUILDING) * 0.9;
-
-  const usedH = rows * cellH;
-  const yOff = (gridH - usedH) / 2;
-  const lastRowCount = totalB - (rows - 1) * cols;
-  const lastRowUsedW = (lastRowCount - 1) * cellW;
+  const R_disk = gridH / 2 - 4;
+  const MAX_BUILDING = 48;
+  const targetSize = 1.8 * R_disk / (Math.sqrt(totalB) + 0.9);
+  const buildingSize = Math.min(MAX_BUILDING, targetSize);
+  const R_eff = Math.max(0, R_disk - buildingSize / 2);
+  const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 
   buildingList.forEach((type, k) => {
-    const col = k % cols;
-    const row = Math.floor(k / cols);
-    const isLastRow = row === rows - 1;
-    const rowUsedW = isLastRow ? lastRowUsedW : (cols - 1) * cellW;
-    const bx = cx - rowUsedW/2 + col * cellW;
-    const by = gridTop + yOff + cellH/2 + row * cellH;
+    const rN = totalB === 1 ? 0 : R_eff * Math.sqrt((k + 0.5) / totalB);
+    const theta = k * GOLDEN_ANGLE;
+    const bx = cx + rN * Math.cos(theta);
+    const by = gridCenterY + rN * Math.sin(theta);
 
     if (type === 'S') html += svgHouse(bx, by, f.color, buildingSize * 0.9);
     else if (type === 'M') html += svgManor(bx, by, f.color, buildingSize);
@@ -657,6 +648,11 @@ function renderFamilies() {
             <button data-act="addL" data-i="${idx}">Kauf L (50)</button>
           </div>
           <div class="fam-edit-row">
+            <button data-act="allS" data-i="${idx}">Alle S</button>
+            <button data-act="allM" data-i="${idx}">Alle M</button>
+            <button data-act="allL" data-i="${idx}">Alle L</button>
+          </div>
+          <div class="fam-edit-row">
             <button data-act="subS" data-i="${idx}">−S</button>
             <button data-act="subM" data-i="${idx}">−M</button>
             <button data-act="subL" data-i="${idx}">−L</button>
@@ -714,6 +710,19 @@ document.getElementById('famGrid').addEventListener('click', e => {
     f.coinsAtStand += COST[size];
     return true;
   }
+  function buyAll(size) {
+    snapshot();
+    const available = Math.floor(f.coinsAtStand);
+    if (available < COST[size]) {
+      alert(`${f.name} hat nur ${available} Coins — ein ${size} kostet ${COST[size]}.`);
+      return false;
+    }
+    const n = Math.floor(available / COST[size]);
+    if (!confirm(`${f.name}: ${n} × ${size} für ${n * COST[size]} Coins kaufen?`)) return false;
+    f.coinsAtStand -= n * COST[size];
+    f.buildings[size] += n;
+    return true;
+  }
 
   if (act === 'addS') { if (!buy('S')) return; }
   else if (act === 'subS') { if (!refund('S')) return; }
@@ -721,6 +730,9 @@ document.getElementById('famGrid').addEventListener('click', e => {
   else if (act === 'subM') { if (!refund('M')) return; }
   else if (act === 'addL') { if (!buy('L')) return; }
   else if (act === 'subL') { if (!refund('L')) return; }
+  else if (act === 'allS') { if (!buyAll('S')) return; }
+  else if (act === 'allM') { if (!buyAll('M')) return; }
+  else if (act === 'allL') { if (!buyAll('L')) return; }
   else if (act === 'setCoins') {
     const v = parseInt(document.getElementById('setC' + i).value);
     if (!isNaN(v)) {

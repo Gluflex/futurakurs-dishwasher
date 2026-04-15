@@ -29,6 +29,11 @@ let state = loadState();
 let editMode = false;
 let sbSaveTimer = null;
 let sbSkipNextRealtime = false;
+let vzAnimating = false;
+let domVerkehrt = !!state.verkehrteZeit;
+let vzPage = null;
+let vzOverlay = null;
+let _lastLayoutSig = null;
 
 function loadState() {
   try {
@@ -73,6 +78,7 @@ async function bootstrapSupabase() {
     if (data && data.data && data.data.families) {
       state = data.data;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      domVerkehrt = !!state.verkehrteZeit;
       render();
     } else {
       sbSkipNextRealtime = true;
@@ -87,7 +93,7 @@ async function bootstrapSupabase() {
         if (payload.new && payload.new.data && payload.new.data.families) {
           state = payload.new.data;
           localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-          render();
+          if (!vzAnimating) render();
         }
       })
     .subscribe();
@@ -484,6 +490,25 @@ function poissonDisk(N, R, seed) {
   return { points: points.slice(0, N), minDist };
 }
 
+const _poissonCache = new Map();
+const POISSON_CACHE_MAX = 80;
+function poissonDiskCached(N, R, seed, key) {
+  const ck = key + '|' + N + '|' + Math.round(R * 10);
+  const hit = _poissonCache.get(ck);
+  if (hit) {
+    _poissonCache.delete(ck);
+    _poissonCache.set(ck, hit);
+    return hit;
+  }
+  const result = poissonDisk(N, R, seed);
+  _poissonCache.set(ck, result);
+  if (_poissonCache.size > POISSON_CACHE_MAX) {
+    const firstKey = _poissonCache.keys().next().value;
+    _poissonCache.delete(firstKey);
+  }
+  return result;
+}
+
 function flatTopHexPoints(cx, cy, r) {
   const pts = [];
   for (let i = 0; i < 6; i++) {
@@ -644,7 +669,8 @@ function drawDistrict(f, cx, cy, r) {
   html += `
     <text x="${cx}" y="${coinY}" text-anchor="middle"
           font-family="Palatino Linotype, serif" font-size="15"
-          font-weight="bold" fill="#3d2817">${Math.floor(currentCoins(f))} ⚜</text>
+          font-weight="bold" fill="#3d2817"
+          data-coin-fam="${f.id}" data-coin-suffix=" ⚜">${Math.floor(currentCoins(f))} ⚜</text>
   `;
 
   const totalB = f.buildings.S + f.buildings.M + f.buildings.L;
@@ -663,7 +689,7 @@ function drawDistrict(f, cx, cy, r) {
   const R_disk = gridH / 2 - 4;
   const MAX_BUILDING = 48;
   const seed = hashString(f.id || f.name || 'x');
-  const { points, minDist } = poissonDisk(totalB, R_disk, seed);
+  const { points, minDist } = poissonDiskCached(totalB, R_disk, seed, f.id || f.name || 'x');
   const buildingSize = Math.min(MAX_BUILDING, minDist * 0.8);
 
   buildingList.forEach((type, k) => {
@@ -728,7 +754,7 @@ function renderFamilies() {
         <img class="crest" src="crest_${f.id}.png" alt="${f.name}">
 
         <div class="fam-name" style="${nameStyle}">${f.name}</div>
-        <div class="fam-coins">${Math.floor(coins)}</div>
+        <div class="fam-coins" data-coin-fam="${f.id}">${Math.floor(coins)}</div>
         <div class="fam-income${state.verkehrteZeit ? ' verkehrt' : ''}">${state.verkehrteZeit ? '−' : '+'}<b>${inc}</b> pro Stunde</div>
         <div class="fam-buildings">
           <span>S ×<b>${f.buildings.S}</b></span>
@@ -767,21 +793,175 @@ function renderFamilies() {
   grid.innerHTML = html;
 }
 
-function render() {
-  document.body.classList.toggle('verkehrte-zeit', !!state.verkehrteZeit);
+function setupVzDom() {
+  if (vzPage) return;
+  vzPage = document.createElement('div');
+  vzPage.id = 'vz-page';
+  const children = Array.from(document.body.childNodes);
+  children.forEach(n => vzPage.appendChild(n));
+  document.body.appendChild(vzPage);
+  vzOverlay = document.createElement('div');
+  vzOverlay.id = 'vz-overlay';
+  vzOverlay.innerHTML = `
+    <div class="vz-inner">
+      <div class="vz-big" id="vz-big"></div>
+      <div class="vz-clock" id="vz-clock">${clockSVG()}</div>
+      <div class="vz-small" id="vz-small"></div>
+    </div>`;
+  document.body.appendChild(vzOverlay);
+  if (domVerkehrt) vzPage.classList.add('verkehrte-zeit');
+}
+
+function clockSVG() {
+  const ticks = [...Array(12)].map((_, i) => {
+    const a = (i * 30 - 90) * Math.PI / 180;
+    const x1 = 100 + 80 * Math.cos(a), y1 = 100 + 80 * Math.sin(a);
+    const x2 = 100 + 90 * Math.cos(a), y2 = 100 + 90 * Math.sin(a);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#3d2817" stroke-width="2.5"/>`;
+  }).join('');
+  const roman = ['XII','I','II','III','IV','V','VI','VII','VIII','IX','X','XI'];
+  const nums = roman.map((r, i) => {
+    const a = (i * 30 - 90) * Math.PI / 180;
+    const x = 100 + 68 * Math.cos(a), y = 100 + 68 * Math.sin(a) + 5;
+    return `<text x="${x}" y="${y}" text-anchor="middle" font-family="Palatino Linotype, serif" font-size="15" font-weight="bold" fill="#3d2817">${r}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <circle cx="100" cy="100" r="94" fill="#f0e0bc" stroke="#3d2817" stroke-width="3"/>
+    <circle cx="100" cy="100" r="88" fill="none" stroke="#a87830" stroke-width="1"/>
+    ${ticks}${nums}
+    <line class="vz-hour" x1="100" y1="100" x2="100" y2="55" stroke="#3d2817" stroke-width="5" stroke-linecap="round"/>
+    <line class="vz-min"  x1="100" y1="100" x2="100" y2="28" stroke="#3d2817" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="100" cy="100" r="4.5" fill="#8b2c1e"/>
+  </svg>`;
+}
+
+function setVzText(id, text, show, warn) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = text;
+  el.classList.toggle('vz-show', !!show);
+  el.classList.toggle('vz-warn', !!warn);
+}
+
+function playVerkehrtTransition(target) {
+  if (vzAnimating) return;
+  setupVzDom();
+  vzAnimating = true;
+  const big = document.getElementById('vz-big');
+  const small = document.getElementById('vz-small');
+  const clock = document.getElementById('vz-clock');
   const h1 = document.querySelector('h1');
-  if (h1) h1.textContent = state.verkehrteZeit ? '★ REHSAWHSID ★' : '★ DISHWASHER ★';
   const sub = document.querySelector('.subtitle');
-  if (sub) sub.textContent = state.verkehrteZeit
+
+  vzPage.classList.remove('vz-rotating-in', 'vz-rotating-out', 'vz-flicker', 'vz-final-pulse');
+  vzOverlay.className = '';
+  clock.className = 'vz-clock' + (target ? '' : ' vz-fwd');
+  big.className = 'vz-big';
+  small.className = 'vz-small';
+
+  const at = (t, fn) => setTimeout(fn, t);
+
+  at(0,    () => { vzOverlay.classList.add('vz-flickerbg'); vzPage.classList.add('vz-flicker'); });
+  at(300,  () => setVzText('vz-big',   target ? '⚡ Anomalia Temporis ⚡' : '⚡ Restitutio Temporis ⚡', true, true));
+  at(1500, () => setVzText('vz-small', target ? 'Stromnetz instabil · Zeitachse gestört' : 'Stromnetz stabilisiert · Ordnung kehrt zurück', true));
+  at(2700, () => { big.classList.remove('vz-show'); small.classList.remove('vz-show'); });
+
+  at(3200, () => { vzOverlay.classList.remove('vz-flickerbg'); vzOverlay.classList.add('vz-black'); vzPage.classList.remove('vz-flicker'); });
+  at(3800, () => setVzText('vz-big', target ? 'Stromausfall' : 'Stromzufuhr wiederhergestellt', true, true));
+  at(5200, () => big.classList.remove('vz-show'));
+
+  at(5700, () => clock.classList.add('vz-show'));
+  at(6300, () => setVzText('vz-big',   target ? 'Die Zeit verkehrt sich' : 'Die Ordnung kehrt zurück', true, false));
+  at(7200, () => setVzText('vz-small', target ? 'Tempus retrogradum · Anno MMXXVI' : 'Tempus rectum · Anno MMXXVI', true));
+
+  at(8200, () => {
+    h1.textContent = target ? '★ REHSAWHSID ★' : '★ DISHWASHER ★';
+    sub.textContent = target
+      ? 'Verkehrtes Vermögensregister · Anno MMXXVI retrograd'
+      : 'Königliches Vermögensregister · Anno MMXXVI';
+    renderMap();
+    renderFamilies();
+  });
+
+  at(9800,  () => { big.classList.remove('vz-show'); small.classList.remove('vz-show'); });
+  at(10400, () => clock.classList.remove('vz-show'));
+
+  at(11000, () => {
+    vzOverlay.classList.remove('vz-black');
+    vzOverlay.classList.add('vz-dim');
+    vzPage.classList.add(target ? 'vz-rotating-in' : 'vz-rotating-out');
+  });
+  at(13500, () => setVzText('vz-small', target ? 'Tempus retrogradum' : 'Tempus rectum', true));
+
+  at(16000, () => {
+    small.classList.remove('vz-show');
+    vzOverlay.classList.remove('vz-dim');
+    vzOverlay.classList.add('vz-clear');
+    vzPage.classList.remove('vz-rotating-in', 'vz-rotating-out');
+    vzPage.classList.toggle('verkehrte-zeit', target);
+    vzPage.classList.add('vz-final-pulse');
+  });
+  at(17600, () => vzPage.classList.remove('vz-final-pulse'));
+  at(18200, () => {
+    vzAnimating = false;
+    domVerkehrt = target;
+    render();
+  });
+}
+
+function layoutSignature() {
+  const fams = state.families.map(f =>
+    `${f.id}:${f.color}:${f.name}:${f.buildings.S},${f.buildings.M},${f.buildings.L}`
+  ).join('||');
+  return (state.verkehrteZeit ? '1' : '0') + '|' + fams;
+}
+
+function updateStandInfo() {
+  const el = document.getElementById('standInfo');
+  if (!el) return;
+  const fmt = d => new Date(d).toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' });
+  const prefix = state.verkehrteZeit ? 'Verkehrte Zeit · ' : '';
+  el.innerHTML =
+    prefix + 'Stand letzter manueller Eingabe: ' + fmt(state.standTime) +
+    '<br>Letzte Aktualisierung Dividenden: ' + fmt(Date.now());
+}
+
+function updateCoinsOnly() {
+  state.families.forEach(f => {
+    const coinStr = String(Math.floor(currentCoins(f)));
+    const nodes = document.querySelectorAll('[data-coin-fam="' + f.id + '"]');
+    nodes.forEach(el => {
+      const suffix = el.getAttribute('data-coin-suffix') || '';
+      el.textContent = coinStr + suffix;
+    });
+  });
+  updateStandInfo();
+}
+
+function render() {
+  if (vzAnimating) return;
+  setupVzDom();
+  const target = !!state.verkehrteZeit;
+  if (target !== domVerkehrt) { playVerkehrtTransition(target); return; }
+
+  const sig = layoutSignature();
+  if (sig === _lastLayoutSig) {
+    updateCoinsOnly();
+    return;
+  }
+  _lastLayoutSig = sig;
+
+  vzPage.classList.toggle('verkehrte-zeit', target);
+  const h1 = document.querySelector('h1');
+  if (h1) h1.textContent = target ? '★ REHSAWHSID ★' : '★ DISHWASHER ★';
+  const sub = document.querySelector('.subtitle');
+  if (sub) sub.textContent = target
     ? 'Verkehrtes Vermögensregister · Anno MMXXVI retrograd'
     : 'Königliches Vermögensregister · Anno MMXXVI';
   renderMap();
   renderFamilies();
-  const fmt = d => new Date(d).toLocaleString('de-CH', { dateStyle: 'short', timeStyle: 'short' });
-  const prefix = state.verkehrteZeit ? 'Verkehrte Zeit · ' : '';
-  document.getElementById('standInfo').innerHTML =
-    prefix + 'Stand letzter manueller Eingabe: ' + fmt(state.standTime) +
-    '<br>Letzte Aktualisierung Dividenden: ' + fmt(Date.now());
+  updateStandInfo();
+  updateVzButton();
 }
 
 document.getElementById('famGrid').addEventListener('click', e => {
@@ -860,29 +1040,80 @@ document.getElementById('famGrid').addEventListener('change', e => {
   saveState();
 });
 
-document.getElementById('editToggle').addEventListener('click', () => {
+const EDIT_PW = (typeof window !== 'undefined' && window.EDIT_PW) ? window.EDIT_PW : null;
+
+function askPassword() {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('pw-backdrop');
+    if (existing) existing.remove();
+    const backdrop = document.createElement('div');
+    backdrop.id = 'pw-backdrop';
+    backdrop.innerHTML = `
+      <div class="pw-modal" role="dialog" aria-label="Passwort">
+        <div class="pw-title">⚜ Königliches Siegel ⚜</div>
+        <div class="pw-sub">Passwort eingeben</div>
+        <input type="password" class="pw-input" autocomplete="off" spellcheck="false">
+        <div class="pw-err-msg">Falsches Passwort</div>
+        <div class="pw-buttons">
+          <button type="button" class="pw-cancel">Abbrechen</button>
+          <button type="button" class="pw-ok primary">Bestätigen</button>
+        </div>
+      </div>`;
+    document.body.appendChild(backdrop);
+    const input = backdrop.querySelector('.pw-input');
+    const ok = backdrop.querySelector('.pw-ok');
+    const cancel = backdrop.querySelector('.pw-cancel');
+
+    const submit = () => {
+      const val = input.value;
+      if (!EDIT_PW || val !== EDIT_PW) {
+        backdrop.classList.remove('pw-err');
+        void backdrop.offsetWidth;
+        backdrop.classList.add('pw-err');
+        input.select();
+        return;
+      }
+      backdrop.remove();
+      resolve(true);
+    };
+    const close = () => { backdrop.remove(); resolve(false); };
+
+    ok.addEventListener('click', submit);
+    cancel.addEventListener('click', close);
+    backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    });
+    setTimeout(() => input.focus(), 20);
+  });
+}
+
+function updateVzButton() {
+  const btn = document.getElementById('vzToggle');
+  if (!btn) return;
+  btn.style.display = editMode ? '' : 'none';
+  const on = !!state.verkehrteZeit;
+  btn.textContent = on ? '↻ Zeit normalisieren' : '⚡ Zeit verkehren';
+  btn.classList.toggle('primary', on);
+}
+
+document.getElementById('editToggle').addEventListener('click', async () => {
   if (!editMode) {
-    const pw = prompt('Passwort:');
-    if (pw === null) return;
-    if (pw !== 'AndiArbeit') {
-      alert(
-        '⚜ EDICTUM REGIUM ⚜\n\n' +
-        'HALT EIN, FREVLER!\n\n' +
-        'Das königliche Vermögensregister untersteht\n' +
-        'dem Schutz der Regierung zu Dishwasher.\n' +
-        'Dein unbefugter Eingriffsversuch ward in den\n' +
-        'Annalen auf ewig vermerkt.\n\n' +
-        'Weitere Übergriffe werden mit Kerker,\n' +
-        'Pranger und Entzug der Vorräte geahndet.\n\n' +
-        '— Siegel der Regierung —'
-      );
-      return;
-    }
+    const ok = await askPassword();
+    if (!ok) return;
   }
   editMode = !editMode;
   document.getElementById('editToggle').textContent = editMode ? '✓ Fertig' : '✎ Bearbeiten';
   document.getElementById('editToggle').classList.toggle('primary', editMode);
   document.getElementById('famPanel').classList.toggle('editing', editMode);
+  updateVzButton();
+});
+
+document.getElementById('vzToggle').addEventListener('click', () => {
+  if (vzAnimating) return;
+  window.verkehrteZeit();
+  updateVzButton();
 });
 
 document.getElementById('exportBtn')?.addEventListener('click', () => {
@@ -926,6 +1157,10 @@ setInterval(() => {
 }, 1000);
 
 window.verkehrteZeit = function(force) {
+  if (vzAnimating) {
+    console.log('%c  Animation läuft bereits — bitte warten…  ', 'color: #a87830; font-style: italic;');
+    return !!state.verkehrteZeit;
+  }
   const target = (typeof force === 'boolean') ? force : !state.verkehrteZeit;
   if (target === !!state.verkehrteZeit) {
     console.log('%c  Verkehrte Zeit ist bereits ' + (target ? 'AKTIV.' : 'AUS.') + '  ', 'color: #a87830; font-style: italic;');
@@ -936,6 +1171,7 @@ window.verkehrteZeit = function(force) {
   state.standTime = new Date().toISOString();
   saveState();
   render();
+  // render() triggert playVerkehrtTransition, da target !== domVerkehrt
   if (target) {
     console.log('%c  DIE ZEIT VERKEHRT SICH · Anno MMXXVI retrograd  ', 'background: #8b2c1e; color: #f0e0bc; font-size: 16px; padding: 8px 16px; font-variant: small-caps; letter-spacing: 3px;');
   } else {

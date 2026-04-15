@@ -261,23 +261,187 @@ button.danger { color: #d47057; border-color: #8b2c1e; }
   font-family: inherit;
   width: 200px;
 }
-body.verkehrte-zeit {
+#vz-page { transform-origin: center center; will-change: transform, filter; }
+#vz-page.verkehrte-zeit {
   transform: rotate(180deg);
-  transform-origin: center center;
   filter: hue-rotate(15deg) sepia(0.18) contrast(1.05);
-  transition: transform 2.2s cubic-bezier(.65,.05,.36,1), filter 2.2s ease-in-out;
 }
-body.verkehrte-zeit h1 {
+#vz-page.verkehrte-zeit h1 {
   color: var(--wax-red);
   text-shadow: 0 0 22px rgba(139, 44, 30, 0.6), 2px 2px 6px rgba(0,0,0,0.9);
 }
-body.verkehrte-zeit .subtitle {
-  color: #d47057;
-}
+#vz-page.verkehrte-zeit .subtitle { color: #d47057; }
 .fam-income.verkehrt {
   color: var(--wax-red) !important;
   font-weight: bold;
   font-style: normal;
+}
+
+@keyframes vz-flicker {
+  0%, 100% { filter: brightness(1); }
+  6%  { filter: brightness(0.25) contrast(1.4); }
+  8%  { filter: brightness(1.35); }
+  11% { filter: brightness(0.15); }
+  14% { filter: brightness(1); }
+  27% { filter: brightness(0.5); }
+  30% { filter: brightness(1.15); }
+  44% { filter: brightness(0.1); }
+  48% { filter: brightness(0.9); }
+  63% { filter: brightness(0.35) hue-rotate(20deg); }
+  66% { filter: brightness(1); }
+  82% { filter: brightness(0.2); }
+  86% { filter: brightness(0.95); }
+}
+#vz-page.vz-flicker { animation: vz-flicker 3s steps(80) 1; }
+
+@keyframes vz-rotate-in {
+  0%   { transform: rotate(0deg);   filter: brightness(0.35); }
+  18%  { transform: rotate(14deg);  filter: brightness(0.5); }
+  100% { transform: rotate(180deg); filter: hue-rotate(15deg) sepia(0.18) contrast(1.05) brightness(1); }
+}
+@keyframes vz-rotate-out {
+  0%   { transform: rotate(180deg); filter: hue-rotate(15deg) sepia(0.18) contrast(1.05) brightness(0.4); }
+  100% { transform: rotate(360deg); filter: brightness(1); }
+}
+#vz-page.vz-rotating-in  { animation: vz-rotate-in  5s cubic-bezier(.55,0,.3,1) forwards; }
+#vz-page.vz-rotating-out { animation: vz-rotate-out 5s cubic-bezier(.55,0,.3,1) forwards; }
+
+#vz-overlay {
+  position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+  opacity: 0; background: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+  transition: opacity 0.6s ease-in-out, background 0.6s ease-in-out;
+}
+#vz-overlay.vz-flickerbg { opacity: 0.55; background: radial-gradient(ellipse at center, rgba(0,0,0,0.7), rgba(0,0,0,0.95)); }
+#vz-overlay.vz-black     { opacity: 1; background: #000; }
+#vz-overlay.vz-dim       { opacity: 0.78; background: radial-gradient(ellipse at center, rgba(0,0,0,0.55), rgba(0,0,0,0.92)); }
+#vz-overlay.vz-clear     { opacity: 0; }
+#vz-overlay .vz-inner { text-align: center; color: #c79a4a; max-width: 86vw; }
+.vz-big {
+  font-size: clamp(2.4em, 6.5vw, 5.2em);
+  font-variant: small-caps;
+  letter-spacing: 10px;
+  text-shadow: 0 0 32px rgba(199,154,74,0.6), 0 0 6px #000;
+  opacity: 0; margin-bottom: 0.25em;
+  transition: opacity 0.9s ease-in-out, letter-spacing 2.4s ease-out, color 0.6s;
+}
+.vz-big.vz-show { opacity: 1; letter-spacing: 16px; }
+.vz-big.vz-warn { color: #d47057; text-shadow: 0 0 36px rgba(212,112,87,0.8), 0 0 8px #000; }
+.vz-small {
+  font-size: clamp(1em, 1.5vw, 1.35em);
+  font-style: italic; font-variant: small-caps; letter-spacing: 4px;
+  opacity: 0; color: #b89866; min-height: 1.4em;
+  transition: opacity 1s ease-in-out;
+}
+.vz-small.vz-show { opacity: 1; }
+.vz-clock {
+  width: clamp(170px, 22vw, 260px); height: clamp(170px, 22vw, 260px);
+  margin: 26px auto 14px; opacity: 0;
+  transition: opacity 0.9s ease-in-out;
+  filter: drop-shadow(0 0 24px rgba(199,154,74,0.35));
+}
+.vz-clock.vz-show { opacity: 1; }
+.vz-clock svg { width: 100%; height: 100%; }
+@keyframes vz-hand-back { from { transform: rotate(360deg); } to { transform: rotate(-360deg); } }
+.vz-clock .vz-min  { transform-origin: 100px 100px; animation: vz-hand-back 1.6s linear infinite; }
+.vz-clock .vz-hour { transform-origin: 100px 100px; animation: vz-hand-back 19s linear infinite; }
+.vz-clock.vz-fwd .vz-min,
+.vz-clock.vz-fwd .vz-hour { animation-direction: reverse; }
+
+@keyframes vz-pulse {
+  0%, 100% { text-shadow: 0 0 22px rgba(139,44,30,0.6), 2px 2px 6px rgba(0,0,0,0.9); }
+  50%      { text-shadow: 0 0 70px rgba(212,112,87,0.95), 0 0 16px rgba(139,44,30,0.9), 2px 2px 6px rgba(0,0,0,0.9); }
+}
+#vz-page.vz-final-pulse h1 { animation: vz-pulse 1.6s ease-in-out 1; }
+
+#pw-backdrop {
+  position: fixed; inset: 0; z-index: 10000;
+  background: radial-gradient(ellipse at center, rgba(20,12,4,0.82), rgba(10,5,2,0.95));
+  display: flex; align-items: center; justify-content: center;
+  animation: pw-fade 0.25s ease-out;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Palatino, Georgia, serif;
+}
+@keyframes pw-fade { from { opacity: 0; } to { opacity: 1; } }
+#pw-backdrop .pw-modal {
+  background: radial-gradient(ellipse at center, var(--parchment-light) 0%, var(--parchment) 55%, var(--parchment-dark) 100%);
+  padding: 32px 40px 26px;
+  min-width: 320px;
+  max-width: 90vw;
+  position: relative;
+  box-shadow: inset 0 0 60px rgba(139, 90, 30, 0.22), 0 12px 48px rgba(0,0,0,0.7);
+}
+#pw-backdrop .pw-modal::before {
+  content: ''; position: absolute; inset: 10px;
+  border: 1px solid var(--ink); opacity: 0.55; pointer-events: none;
+}
+#pw-backdrop .pw-modal::after {
+  content: ''; position: absolute; inset: 14px;
+  border: 1px solid var(--ink); opacity: 0.25; pointer-events: none;
+}
+#pw-backdrop .pw-title {
+  text-align: center;
+  font-variant: small-caps;
+  letter-spacing: 5px;
+  color: var(--ink);
+  font-size: 1.25em;
+  font-weight: bold;
+  margin-bottom: 4px;
+}
+#pw-backdrop .pw-sub {
+  text-align: center;
+  font-style: italic;
+  font-variant: small-caps;
+  letter-spacing: 2px;
+  color: var(--ink-light);
+  font-size: 0.82em;
+  margin-bottom: 18px;
+}
+#pw-backdrop .pw-input {
+  display: block;
+  width: 100%;
+  padding: 10px 12px;
+  background: var(--parchment-light);
+  color: var(--ink);
+  border: 1px solid var(--ink);
+  font-family: inherit;
+  font-size: 1.1em;
+  letter-spacing: 4px;
+  text-align: center;
+  outline: none;
+}
+#pw-backdrop .pw-input:focus { box-shadow: 0 0 0 2px rgba(199,154,74,0.5); }
+#pw-backdrop.pw-err .pw-input {
+  animation: pw-shake 0.4s ease-in-out;
+  border-color: var(--wax-red);
+  box-shadow: 0 0 0 2px rgba(139,44,30,0.5);
+}
+@keyframes pw-shake {
+  0%,100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-5px); }
+  80% { transform: translateX(5px); }
+}
+#pw-backdrop .pw-err-msg {
+  min-height: 1em;
+  text-align: center;
+  color: var(--wax-red);
+  font-size: 0.8em;
+  font-style: italic;
+  font-variant: small-caps;
+  letter-spacing: 2px;
+  margin-top: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#pw-backdrop.pw-err .pw-err-msg { opacity: 1; }
+#pw-backdrop .pw-buttons {
+  display: flex; justify-content: center; gap: 10px;
+  margin-top: 14px;
+}
+#pw-backdrop .pw-buttons button {
+  margin: 0;
 }
 </style>
 </head>
@@ -288,6 +452,7 @@ body.verkehrte-zeit .subtitle {
 
 <div class="controls">
   <button id="editToggle">✎ Bearbeiten</button>
+  <button id="vzToggle" style="display:none">⚡ Zeit verkehren</button>
   <!-- <button id="exportBtn">⬇ Export</button> -->
   <!-- <button id="importBtn">⬆ Import</button> -->
   <!-- <button id="resetBtn" class="danger">↺ Reset 08:00</button> -->
@@ -309,6 +474,7 @@ body.verkehrte-zeit .subtitle {
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="config.local.js" onerror="void 0"></script>
 <script src="app.js"></script>
 </body>
 </html>

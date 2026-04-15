@@ -1092,7 +1092,6 @@ function askPassword() {
 function updateVzButton() {
   const btn = document.getElementById('vzToggle');
   if (!btn) return;
-  btn.style.display = editMode ? '' : 'none';
   const on = !!state.verkehrteZeit;
   btn.textContent = on ? '↻ Zeit normalisieren' : '⚡ Zeit verkehren';
   btn.classList.toggle('primary', on);
